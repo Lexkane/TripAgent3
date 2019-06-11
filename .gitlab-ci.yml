@@ -1,0 +1,43 @@
+image: golang:1.12
+
+before_script:
+  - git config user.email "supermaaan@test.com"
+  - git config user.name "Super puper"
+
+stages:
+  - vetting
+  - tests
+  - validateSwagger
+  - deploy
+
+lint:
+  stage: vetting
+  script:
+    - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.16.0
+    - golangci-lint run ./...
+
+unitests:
+  stage: tests
+  script:
+    - go test -covermode=count ./...
+    - go vet
+
+validating:
+  stage: validateSwagger
+  script:
+    - go get -u github.com/go-swagger/go-swagger/cmd/swagger
+    - make validate
+
+deploying:
+  stage: deploy
+  script:
+    - echo "deb http://toolbelt.heroku.com/ubuntu ./" > /etc/apt/sources.list.d/heroku.list
+    - wget -O- https://toolbelt.heroku.com/apt/release.key | apt-key add -
+    - apt-get update -yq
+    - apt-get install -y heroku-toolbelt
+    - git checkout -b publish-to-heroku
+    - git commit --allow-empty -m "$CI_COMMIT_MESSAGE"
+    - git branch -v
+    - git push -f https://heroku:${HEROKU_KEY}@git.heroku.com/team-projectv1.git publish-to-heroku:master
+  only:
+    - master
